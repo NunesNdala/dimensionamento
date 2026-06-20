@@ -500,11 +500,16 @@ with tab2:
 
         with col_lda:
             X_lda = dados["X_lda"]
-            eixos = ["LD1", "LD2"] if X_lda.shape[1] >= 2 else ["LD1", "LD1"]
+            if X_lda.shape[1] >= 2:
+                X_lda_plot = X_lda
+                eixo_x_lda, eixo_y_lda = "LD1", "LD2"
+            else:
+                # Apenas 1 componente (datasets com 2 classes): usa jitter no eixo Y
+                X_lda_plot = np.column_stack([X_lda, np.zeros(len(X_lda))])
+                eixo_x_lda, eixo_y_lda = "LD1", "Const"
             fig_lda = scatter_2d(
-                X_lda if X_lda.shape[1] >= 2 else np.column_stack([X_lda, np.zeros(len(X_lda))]),
-                dados["classes_arr"],
-                f"{nome} — LDA (Supervisionado)", eixos[0], eixos[1], paleta
+                X_lda_plot, dados["classes_arr"],
+                f"{nome} — LDA (Supervisionado)", eixo_x_lda, eixo_y_lda, paleta
             )
             st.plotly_chart(fig_lda, use_container_width=True)
 
