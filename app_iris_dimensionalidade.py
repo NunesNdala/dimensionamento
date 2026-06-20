@@ -251,7 +251,7 @@ def avaliar_classificador(modelo, X_train, X_test, y_train, y_test):
         "Precisão": precision_score(y_test, y_pred, average="macro", zero_division=0),
         "Recall": recall_score(y_test, y_pred, average="macro", zero_division=0),
         "F1-Score": f1_score(y_test, y_pred, average="macro", zero_division=0),
-    }, confusion_matrix(y_test, y_pred)
+    }, confusion_matrix(y_test, y_pred, labels=sorted(np.unique(np.concatenate([y_train, y_test]))))
 
 
 # =============================================================================
@@ -663,13 +663,17 @@ with tab4:
 
             # Matrizes de confusão
             st.markdown("**Matrizes de Confusão — KNN**")
-            classes_nomes = dados["classes"]
             cols_mc = st.columns(3)
             for i, cenario in enumerate(["Original", "PCA (2D)", "LDA (2D)"]):
                 key = (cenario, "KNN")
                 if key in dados["matrizes"]:
+                    matriz = dados["matrizes"][key]
+                    # Usar o tamanho real da matriz para os labels (evita erro quando
+                    # o numero de classes na matriz difere da lista original)
+                    n = matriz.shape[0]
+                    classes_nomes = dados["classes"][:n] if len(dados["classes"]) >= n else [str(i) for i in range(n)]
                     fig_mc = px.imshow(
-                        dados["matrizes"][key],
+                        matriz,
                         x=classes_nomes, y=classes_nomes,
                         color_continuous_scale="Blues", text_auto=True,
                         labels=dict(x="Previsto", y="Real"),
