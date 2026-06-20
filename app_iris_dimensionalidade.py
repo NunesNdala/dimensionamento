@@ -380,7 +380,11 @@ if uploaded_files:
     for uf in uploaded_files:
         # Ler colunas para seleção do alvo
         try:
-            df_preview = pd.read_csv(uf)
+            df_preview = pd.read_csv(uf, sep=None, engine="python", nrows=5,
+                                      na_values=["?","NA","N/A","na","n/a",""])
+            # Remover colunas Unnamed/vazias do preview tambem
+            df_preview = df_preview.loc[:, ~df_preview.columns.str.startswith("Unnamed")]
+            df_preview = df_preview.dropna(axis=1, how="all")
             uf.seek(0)
             col_alvo = st.sidebar.selectbox(
                 f"Coluna alvo — {uf.name}",
