@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 =============================================================================
 ESTUDO DE REDUÇÃO DE DIMENSIONALIDADE E SEPARABILIDADE — MULTI-DATASET
@@ -112,28 +113,56 @@ def carregar_digits():
 
 
 def carregar_csv_usuario(uploaded_file, coluna_alvo):
-    """Carrega CSV enviado pelo usuário."""
+    """
+    Carrega CSV com tratamento robusto:
+    - Substitui marcadores de missing ('?', 'NA', etc.) por NaN
+    - Converte colunas object para numérico quando possível
+    - Codifica colunas categoricas restantes com LabelEncoder
+    - Remove linhas com NaN apos processamento
+    """
     try:
-        df = pd.read_csv(uploaded_file)
+        df = pd.read_csv(uploaded_file, na_values=["?", "NA", "N/A", "na", "n/a", ""])
+
         if coluna_alvo not in df.columns:
-            return None, None, None, None, f"Coluna '{coluna_alvo}' não encontrada."
+            return None, None, None, None, f"Coluna '{coluna_alvo}' nao encontrada."
 
         feature_cols = [c for c in df.columns if c != coluna_alvo]
 
-        # Verificar se colunas de features são numéricas
-        df_features = df[feature_cols].select_dtypes(include=[np.number])
-        if df_features.shape[1] == 0:
-            return None, None, None, None, "Nenhuma coluna numérica encontrada além da coluna alvo."
+        # Tentar converter colunas object para numerico
+        for col in feature_cols:
+            if df[col].dtype == object:
+                converted = pd.to_numeric(df[col], errors="coerce")
+                if converted.notna().mean() >= 0.5:
+                    df[col] = converted
 
-        feature_cols = list(df_features.columns)
+        numeric_cols = list(df[feature_cols].select_dtypes(include=[np.number]).columns)
+        cat_cols = list(df[feature_cols].select_dtypes(include=["object", "category"]).columns)
 
-        # Codificar alvo se for texto
+        # Codificar colunas categoricas como inteiros
+        for col in cat_cols:
+            le_col = LabelEncoder()
+            non_null = df[col].dropna()
+            if len(non_null) == 0:
+                continue
+            le_col.fit(non_null.astype(str))
+            df[col] = df[col].apply(
+                lambda x, le=le_col: le.transform([str(x)])[0] if pd.notna(x) else np.nan
+            )
+            numeric_cols.append(col)
+
+        if len(numeric_cols) == 0:
+            return None, None, None, None, "Nenhuma coluna numerica ou convertivel encontrada alem da coluna alvo."
+
+        feature_cols = numeric_cols
+
         le = LabelEncoder()
         df["target"] = le.fit_transform(df[coluna_alvo].astype(str))
         df["classe"] = df[coluna_alvo].astype(str)
 
-        # Remover NaN
         df = df.dropna(subset=feature_cols + ["target"])
+
+        if len(df) < 10:
+            return None, None, None, None, f"Poucos dados validos apos limpeza ({len(df)} linhas)."
 
         classes = list(le.classes_)
         nome = uploaded_file.name.replace(".csv", "")
